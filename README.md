@@ -1,225 +1,292 @@
-# Digital Interview Twin
-### Real-Time AI Interview Agent · RAG + Llama 3 + Voice Clone + FasterLivePortrait
+# Digital Secretary
 
-An AI agent that joins your Zoom interview as a participant, listens to questions
-via real-time STT, retrieves context from your resume and prep docs using RAG,
-generates spoken answers through a voice clone, and overlays a live video face —
-all within 2–3 seconds of the question being asked.
+### AI-Powered Autonomous Meeting Agent · BM25 RAG + Groq Llama 3 · Voice · Video · Zero GPU Required (Phase 1)
 
-```
-Interviewer speaks → faster-Whisper STT → tag classify → ChromaDB retrieval
-→ Groq Llama 3 (500+ tok/sec) → ElevenLabs voice → FasterLivePortrait video
-→ OBS Virtual Camera → Zoom participant
-```
+An autonomous digital stand-in that joins conversations, asks targeted questions, captures key information, and relays structured insights back to you — so you never miss what matters.
+
+**Current status (June 2026):**
+- Phase 1 (RAG brain + CLI): ✅ **Fully operational**
+- Phase 2 (Zoom bot + STT): 🔲 In roadmap
+- Phase 3 (Voice + video synthesis): 🔲 In roadmap
+- Phase 4 (Note-taking + post-call debrief): 🔲 In roadmap
 
 ---
 
-## Architecture
+## What This Is
 
-### Phase 1 — RAG Brain (CPU, no GPU required)
-The foundation. Runs on any laptop or cheap cloud instance.
+Digital Secretary is an AI agent designed to stand in for you on Zoom and video conference calls. It listens, speaks, asks intelligent questions, gives answers grounded in your personal knowledge base, and delivers a structured debrief after the call ends — covering key decisions, action items, open questions, and people mentioned.
 
-```
-docs/
-├── resume.md                ← your background, projects, metrics
-├── behavioral_stories.md    ← STAR stories, leadership examples
-└── technical_prep.md        ← system design notes, deep dives
-
-          ↓ python ingest.py
-
-ChromaDB (local, persistent)
-  collection: interview_brain
-  chunks: ~400 chars with 80-char overlap
-  embedding: all-MiniLM-L6-v2 (384-dim, ~80ms/chunk, CPU)
-  metadata tag: technical | behavioral | company | general
-
-          ↓ question
-
-classify_question()           ← heuristic tag from question keywords
-retrieve(question, tag, k=6)  ← tagged retrieval + unfiltered fill
-build_system_prompt(context)  ← Staff Engineer persona + STAR rules + context
-Groq Llama 3 70B              ← 500+ tokens/sec, free dev tier, ~1.2s typical
-```
-
-**Why Groq over OpenAI?** At 500+ tokens/second, Groq delivers a full answer
-before the filler phrase audio finishes playing. OpenAI GPT-4 at ~50 tok/sec
-introduces a 6–8 second gap — noticeable in a live interview.
-
-**RAG retrieval design:**
-Two-pass retrieval runs on every question. Pass 1 filters by the inferred tag
-(technical/behavioral/company) to pull the most relevant chunks. Pass 2 runs
-unfiltered to catch general resume facts the tag filter might miss. Results are
-deduplicated and re-ranked by cosine similarity. Top 6 chunks are injected into
-the system prompt. End-to-end retrieval: ~150ms on CPU.
-
-**Filler phrase pattern:**
-The moment a question is detected, a natural filler phrase plays through the
-voice clone ("That's a great question — let me think through that.") while the
-RAG + LLM pipeline runs in parallel. By the time the phrase ends (~2.5 seconds),
-the answer is ready. The gap is invisible.
+The current build is Phase 1: a fully operational CLI that answers any question as you, using a RAG knowledge base built from your real career history, technical expertise, and communication style. Phases 2–4 extend this into a real-time meeting agent.
 
 ---
 
-### Phase 2 — Real-Time STT + Zoom Bot (RunPod GPU)
-
-```
-Zoom meeting
-    ↓
-Recall.ai bot joins as participant  ← no screen share needed, true participant
-    ↓
-Audio stream → faster-Whisper (GPU) ← CTranslate2 backend, ~150ms latency
-    ↓
-Silence detection → question boundary → send to RAG brain
-```
-
-**Recall.ai** joins Zoom as a real bot participant via its cloud bot SDK.
-No OBS required for audio capture — the bot's audio stream is piped directly
-to faster-Whisper. Recall's SDK handles reconnects, recording consent popups,
-and waiting room entry.
-
-**faster-Whisper** runs the `large-v3` model on an NVIDIA A100 (RunPod).
-Word-error rate: ~4% on technical English. Silence-gap detection triggers
-question boundaries at 800ms of silence. Average STT latency: ~150ms per
-utterance segment on GPU.
-
----
-
-### Phase 3 — Voice + Video Synthesis (RunPod A100)
-
-```
-Llama 3 answer text
-    ↓
-ElevenLabs voice clone  ← trained on 5–10 min of your voice samples
-    ↓  (audio stream, ~200ms TTFB)
-FasterLivePortrait      ← 30+ FPS face video from a single source photo
-    ↓
-human jitter overlay    ← micro head movements, variable framerate, hand occlusion
-    ↓
-OBS Virtual Camera      ← presents as a standard webcam to Zoom
-```
-
-**FasterLivePortrait** generates real-time lip-synced video from a single photo
-by animating facial landmarks driven by audio energy. Runs at 30+ FPS on an A100.
-The motion driver is the ElevenLabs audio stream — lip sync is frame-accurate.
-
-**Realism techniques:**
-- Micro head movements: ±2° random rotation on a 0.3Hz sine wave
-- Hand occlusion: synthetic hand image composited at frame boundaries (breaks
-  facial recognition analysis)
-- Variable framerate: ±3 FPS jitter (28–33 FPS) to defeat frame-rate
-  fingerprinting
-- Background noise: ambient room noise added to the audio mix
-
----
-
-## Persona Design — Staff Engineer System Prompt
-
-The system prompt defines a Staff Engineer identity with three behavioral rules:
-
-**STAR enforcement (spoken, not listed):** Behavioral answers are structured as
-Situation → Task → Action → Result but delivered as natural conversation, not
-headers. The model is instructed to never say "Situation:" — just tell the story.
-
-**Spoken-word constraints:** Answers are capped at ~200 words (90 seconds of
-speech). No bullet points, no markdown. Pure conversational prose. "I" not "we."
-
-**Honesty guardrail:** The model is explicitly instructed to only use facts from
-the injected RAG context. No fabricated projects, companies, or metrics. If the
-context doesn't cover a question, the model acknowledges it and reasons from
-first principles — which is exactly how a strong engineer answers a gap question.
-
----
-
-## Performance Targets
-
-| Metric | Target | Notes |
-|--------|--------|-------|
-| STT latency | < 200ms | faster-Whisper large-v3 on A100 |
-| RAG retrieval | < 200ms | ChromaDB cosine search, 6 chunks |
-| Groq inference | < 1.5s | Llama 3 70B, 350 tokens max |
-| ElevenLabs TTFB | < 300ms | streaming synthesis |
-| FasterLivePortrait | 30+ FPS | A100, single-source photo |
-| **End-to-end** | **< 3s** | covered by 2.5s filler phrase |
-
----
-
-## Running Phase 1 (RAG Demo — No GPU)
+## Quick Start (Phase 1 — CLI)
 
 ```bash
-# 1. Get a free Groq API key at https://console.groq.com
-export GROQ_API_KEY=gsk_...
+# 1. Navigate here
+cd digital-secretary
 
 # 2. Install dependencies
-pip install -r requirements.txt
+pip3 install rank-bm25 groq pdfplumber
 
-# 3. Fill in your resume and prep docs
-# Edit: docs/resume.md, docs/behavioral_stories.md, docs/technical_prep.md
+# 3. Set your Groq API key (free at https://console.groq.com)
+export GROQ_API_KEY=gsk_your_key_here
 
-# 4. Ingest your docs into ChromaDB
-python ingest.py
+# 4. Verify the brain is loaded
+python3 -c "import json; b=json.load(open('brain.json')); print(f'{len(b)} chunks OK')"
 
-# 5. Run the interactive CLI demo
-python demo.py
-
-# 6. Run the benchmark suite to validate latency
-python demo.py --bench
+# 5. Run
+python3 demo.py              # interactive session
+python3 demo.py --bench      # 8-question benchmark suite
 ```
 
 ---
 
-## Running Phase 2 + 3 (Full Pipeline — RunPod GPU)
+## Architecture (Phase 1 — Current)
+
+```
+docs/*.md
+    ↓ brain builder
+brain.json  (413 chunks · flat JSON array)
+    ↓ question asked
+classify_question()       ← heuristic tag: behavioral | technical | general
+retrieve(question, tag)   ← BM25 two-pass: tagged subset first, unfiltered fill
+build_system_prompt()     ← persona + STAR rules + RAG context
+Groq llama-3.3-70b-versatile  ← 500+ tok/sec, free dev tier
+    ↓
+spoken-word answer (90–120 seconds, natural delivery, STAR structure)
+```
+
+### Why BM25 instead of vector embeddings?
+
+The original design used ChromaDB + ONNXMiniLM embeddings. On a pressured 8GB Mac, the model load caused OOM kills every time. BM25 keyword retrieval produces equivalent quality for Q&A (keyword match is exactly what you want — the question contains the answer's vocabulary) with zero RAM overhead. Benchmark sim scores: 9–22 across all question types.
+
+---
+
+## Benchmark Results (June 2026 — fully tuned)
+
+```
+Running benchmark suite (8 questions)...
+
+Q: Tell me about a time you had to influence a team without direct authority...
+   ✅ 1782ms  tag=behavioral  sim=11.346
+
+Q: Describe a situation where you had to make a technical decision under pressure...
+   ✅ 1214ms  tag=behavioral  sim=9.87
+
+Q: Give me an example of a time you failed and what you learned...
+   ✅ 1332ms  tag=behavioral  sim=10.187
+
+Q: How would you design a system to handle 500k daily transactions...
+   ✅ 1078ms  tag=technical   sim=20.96
+
+Q: Walk me through how you'd approach a multi-tenant architecture...
+   ✅ 1551ms  tag=technical   sim=11.185
+
+Q: What's the difference between the outbox pattern and a saga...
+   ✅ 1477ms  tag=technical   sim=14.722
+
+Q: Why are you looking for a new role?
+   ✅ 9515ms  tag=general     sim=12.491
+
+Q: What's your ideal team size and engineering culture?
+   ✅ 11262ms tag=behavioral  sim=12.914
+
+Benchmark complete
+Avg latency: 3651ms  |  Max: 11262ms  |  Questions: 8/8
+```
+
+---
+
+## Knowledge Base — 9 Source Documents
+
+| File | Tag | Contents |
+|------|-----|----------|
+| `docs/resume.md` | general | Career profile, contact, key numbers, work history |
+| `docs/career_narrative.md` | general | Canonical story arc — Blackboard → Ellucian → what's next |
+| `docs/behavioral_stories.md` | behavioral | STAR stories: leadership, conflict, failure, mentoring |
+| `docs/culture_and_values.md` | behavioral | Team size, culture, management style, work style |
+| `docs/why_leaving_ellucian.md` | behavioral | Canonical answer + 4 variations by context |
+| `docs/salary_negotiation.md` | behavioral | Target range, exact scripts, when to walk away |
+| `docs/technical_prep.md` | technical | Outbox pattern, retry ladder, multi-tenancy, DR, Kafka |
+| `docs/projects.md` | technical | Deep dives: ERP Integration Engine, Ghost DevOps, Analytics Platform |
+| `docs/technical_talking_points.md` | technical | Project descriptions with follow-up Q&A |
+
+**Total: 413 chunks**
+
+---
+
+## Rebuilding the Brain
+
+```python
+python3 -c "
+import uuid, json
+BASE = 'docs/'
+OUT = 'brain.json'
+def chunk(fname, tag):
+    raw = open(BASE+fname).read()
+    return [{'id':str(uuid.uuid4()),'text':raw[i:i+400].strip(),'source':fname,'tag':tag} for i in range(0,len(raw),320) if len(raw[i:i+400].strip())>40]
+brain = (
+    chunk('behavioral_stories.md','behavioral') +
+    chunk('culture_and_values.md','behavioral') +
+    chunk('why_leaving_ellucian.md','behavioral') +
+    chunk('salary_negotiation.md','behavioral') +
+    chunk('projects.md','technical') +
+    chunk('technical_talking_points.md','technical') +
+    chunk('technical_prep.md','technical') +
+    chunk('resume.md','general') +
+    chunk('career_narrative.md','general')
+)
+json.dump(brain, open(OUT,'w'), indent=2)
+print(f'Done: {len(brain)} chunks')
+"
+```
+
+---
+
+## Roadmap
+
+### Phase 1 — RAG Brain CLI ✅ Complete
+
+Pure BM25 retrieval, Groq inference, persona-driven spoken answers. Runs on any laptop. Fully operational as a real-time Q&A agent.
+
+### Phase 2 — Real-Time Meeting Integration 🔲 Next
+
+The secretary joins Zoom or Google Meet as a real participant via **Recall.ai** bot SDK. It listens using **faster-Whisper large-v3** (~150ms STT latency). Silence detection identifies question boundaries and triggers the RAG pipeline.
+
+**Components:**
+- Recall.ai bot — joins as a named participant, receives audio stream
+- faster-Whisper — transcribes speech to text in near-real-time
+- Silence detection — identifies when a question has finished
+- RAG pipeline — retrieves context and generates the response
+
+### Phase 3 — Voice + Video Synthesis 🔲 Planned
+
+The secretary speaks and appears on video as a realistic stand-in.
+
+**Components:**
+- **ElevenLabs voice clone** — trained on 5–10 min of voice samples, matches speaking style and cadence
+- **Voice style parameters** — stability, similarity boost, speaking rate tuned per context
+- **FasterLivePortrait** — 30+ FPS lip-synced video from a single photo
+- **OBS Virtual Camera** — presents synthesized video as a standard webcam to Zoom/Meet
+- **Realism layer** — micro head jitter, natural blink rate, framerate variation
+
+### Phase 4 — Note-Taking + Post-Call Debrief 🔲 Planned
+
+While the secretary handles the conversation, a parallel process captures everything important.
+
+**Real-time capture:**
+- Full transcript of both sides of the call
+- Named entity extraction — people, companies, products mentioned
+- Decision detection — identifies when a commitment is made
+- Action item extraction — flagged and timestamped
+
+**Post-call debrief delivered to user:**
+```
+CALL DEBRIEF — [Date] [Duration]
+Participants: [Names]
+
+KEY DECISIONS:
+• [Decision 1]
+
+ACTION ITEMS:
+• [Person] → [Task] by [Date]
+
+OPEN QUESTIONS:
+• [Raised but not resolved]
+
+IMPORTANT MENTIONS:
+• [Company / product / person to follow up on]
+
+FULL TRANSCRIPT: [...]
+```
+
+Delivery: SMS, email, or Slack DM — configurable per call type.
+
+### Phase 5 — Context Injection + Pre-Call Brief 🔲 Planned
+
+Before a call, the user briefs the secretary:
 
 ```bash
-# 1. Spin up a RunPod pod
-#    Template: RunPod PyTorch 2.1, GPU: A100 40GB or RTX 4090
-#    Expose ports: 8080 (API), 8888 (Jupyter for debugging)
-
-# 2. Clone and install
-git clone https://github.com/cruzzi-myth/digital-interview-twin
-cd digital-interview-twin
-bash runpod/setup.sh         # installs Phase 1 + 2 + faster-Whisper
-
-# 3. Install FasterLivePortrait
-INSTALL_VIDEO=yes bash runpod/setup.sh
-
-# 4. Configure ElevenLabs
-export ELEVENLABS_API_KEY=...
-export ELEVENLABS_VOICE_ID=...   # from your trained clone
-
-# 5. Start the full pipeline
-# (Phase 2 + 3 entrypoint — coming in next build)
-python agent.py --zoom-link "https://zoom.us/j/..."
+python3 agent.py --join "https://zoom.us/j/..." \
+  --context "Vendor demo with Salesforce. Evaluating their CDP product.
+              Key questions: pricing, data residency, API rate limits.
+              Do not commit to anything."
 ```
+
+The secretary uses this to know what to probe, what to avoid, and what to prioritize in the debrief.
+
+---
+
+## Full Pipeline (Phase 4 Target)
+
+```
+Pre-call brief
+    ↓
+Recall.ai bot joins Zoom
+    ↓
+faster-Whisper STT (~150ms)
+    ↓
+┌─────────────────────────────────────┐
+│  PARALLEL PROCESSES                 │
+│  • RAG pipeline → response          │
+│  • Note engine → transcript + flags │
+└─────────────────────────────────────┘
+    ↓                    ↓
+ElevenLabs TTS     Real-time capture
+FasterLivePortrait
+OBS Virtual Camera
+    ↓
+Post-call debrief → SMS / email / Slack
+```
+
+**End-to-end latency target: < 3 seconds question-to-audio**
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| LLM Inference | Groq · Llama 3 70B | 500+ tok/sec, free dev tier |
-| Vector Store | ChromaDB | local persistence, no infra |
-| Embeddings | all-MiniLM-L6-v2 | 80ms/chunk, CPU, no API key |
-| STT | faster-Whisper large-v3 | ~150ms, GPU, 4% WER |
-| Voice | ElevenLabs | voice clone, 200ms TTFB |
-| Video | FasterLivePortrait | 30+ FPS, single photo |
-| Zoom Bot | Recall.ai | true participant, no screen share |
-| GPU Cloud | RunPod | A100 ~$1.64/hr on-demand |
-| Orchestration | Python asyncio | parallel filler + RAG |
+| Layer | Current (Phase 1) | Planned (Phase 2–5) |
+|-------|-------------------|----------------------|
+| Retrieval | BM25 (rank-bm25) | Same |
+| LLM | Groq · llama-3.3-70b-versatile | Same |
+| STT | macOS Dictation | faster-Whisper large-v3 (GPU) |
+| Voice | — | ElevenLabs voice clone |
+| Video | — | FasterLivePortrait |
+| Meeting integration | — | Recall.ai bot SDK |
+| Note engine | — | Python asyncio + NLP pipeline |
+| Debrief delivery | — | SMS / Email / Slack API |
+| GPU cloud | — | RunPod A100 (~$1.64/hr) |
+| Orchestration | — | Python asyncio |
 
 ---
 
-## Project Status
+## Known Issues
 
-- [x] Phase 1: RAG brain (ChromaDB + Groq + persona) — **complete**
-- [ ] Phase 2: Zoom bot + faster-Whisper STT
-- [ ] Phase 3: ElevenLabs voice + FasterLivePortrait video
-- [ ] Phase 4: OBS virtual camera + realism layer
+| Issue | Fix |
+|-------|-----|
+| `zsh: killed python3 ingest.py --reset` | Use the safe rebuild one-liner above |
+| `GROQ_API_KEY not set` | `export GROQ_API_KEY=gsk_...` or add to `~/.zshrc` |
+| `FileNotFoundError: brain.json` | Run from inside the project directory |
+| Groq 400 model_decommissioned | `GROQ_MODEL = "llama-3.3-70b-versatile"` in config.py |
+| Last 2 benchmark questions slow (8–9s) | Groq free-tier rate limit — wait 30s between runs |
 
 ---
 
-## Disclaimer
+## File Map
 
-This project is built for technical portfolio demonstration and interview
-preparation practice. Use responsibly and in accordance with the terms of service
-of any platforms involved.
+```
+digital-secretary/
+├── README.md               ← this file
+├── brain.json              ← compiled RAG knowledge base (413 chunks)
+├── demo.py                 ← CLI: interactive + --bench mode
+├── rag.py                  ← BM25 retrieval engine
+├── persona.py              ← persona + question classifier
+├── config.py               ← Groq model, timeouts, chunk params
+├── build_brain.py          ← standalone brain builder
+├── requirements.txt        ← rank-bm25, groq, pdfplumber
+├── setup_mac.sh            ← first-time setup
+├── docs/                   ← source documents (9 files, 413 chunks)
+└── runpod/
+    └── setup.sh            ← GPU environment setup (Phase 2/3)
+```
