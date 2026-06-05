@@ -1,0 +1,24 @@
+# Digital Interview Twin — Python dependencies
+# Install: pip3 install -r requirements.txt --break-system-packages
+
+# ─── Core (all required) ──────────────────────────────────────────────────────
+groq>=0.9.0          # Groq API client — Llama 3 70B at 500+ tok/sec, free tier
+rank-bm25>=0.2.2     # BM25 keyword retrieval — pure Python, zero RAM overhead
+pdfplumber>=0.11.0   # PDF text extraction for resume/prep docs
+
+# ─── Optional ─────────────────────────────────────────────────────────────────
+# python-dotenv>=1.0.0   # Load GROQ_API_KEY from .env file (alternative to export)
+
+# ─── Phase 2: Zoom bot ────────────────────────────────────────────────────────
+# recall-ai            # Recall.ai SDK for Zoom bot participant
+
+# ─── Phase 2: Speech-to-Text (GPU on RunPod) ─────────────────────────────────
+# faster-whisper>=1.0.0   # Real-time STT, CTranslate2 backend
+# pyaudio>=0.2.14         # Microphone input for local testing
+
+# ─── Phase 3: Voice synthesis ────────────────────────────────────────────────
+# elevenlabs>=1.0.0    # ElevenLabs voice clone API
+# sounddevice>=0.4.6   # Audio playback
+
+# NOTE: chromadb and sentence-transformers are NOT required.
+# The BM25 approach uses brain.json (plain JSON) — no vector DB, no ML model.

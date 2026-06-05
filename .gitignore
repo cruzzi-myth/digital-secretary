@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+brain.json
+docs/
+*.docx
+.DS_Store
