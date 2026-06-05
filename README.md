@@ -63,6 +63,14 @@ The original design used ChromaDB + ONNXMiniLM embeddings. On a pressured 8GB Ma
 
 ---
 
+## OpenTelemetry Trace — Production Request Flow
+
+![OTel Jaeger Trace](otel-trace.png)
+
+*Interactive version: open `otel-trace.html` in browser — hover any span for full metadata.*
+
+---
+
 ## Benchmark Results (June 2026 — fully tuned)
 
 ```
