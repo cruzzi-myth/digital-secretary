@@ -1,16 +1,17 @@
 """
-demo.py — Digital Interview Twin
-Interactive CLI demo. Type an interview question, get a spoken-style answer.
+demo.py — Digital Secretary
+Interactive CLI demo. Type or speak an interview question, get a spoken-style answer.
 
 Usage:
-    python demo.py                 # interactive loop
+    python demo.py                 # interactive loop (type questions)
+    python demo.py --voice         # voice input mode (speak questions via mic)
     python demo.py --once          # single question, then exit (for piping/testing)
     python demo.py --bench         # run the built-in benchmark suite
 
 Prerequisites:
     1. export GROQ_API_KEY=gsk_...
-    2. Add your resume/prep docs to docs/
-    3. python ingest.py
+    2. pip install rank-bm25 groq pdfplumber
+    3. For voice mode: pip install SpeechRecognition pyaudio
     4. python demo.py
 """
 
@@ -28,11 +29,20 @@ RESET  = "\033[0m"
 
 BANNER = f"""
 {CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
-{BOLD}  🎙  Digital Interview Twin — RAG Demo{RESET}
-{GRAY}  Model: Llama 3 70B via Groq  |  DB: ChromaDB{RESET}
+{BOLD}  🎙  Digital Secretary — RAG Demo{RESET}
+{GRAY}  Model: Llama 3 70B via Groq  |  BM25 Retrieval{RESET}
 {CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
   Type an interview question and press Enter.
   Type {YELLOW}quit{RESET} or press Ctrl+C to exit.
+"""
+
+VOICE_BANNER = f"""
+{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
+{BOLD}  🎤  Digital Secretary — Voice Mode{RESET}
+{GRAY}  Speak your question — listening after each prompt{RESET}
+{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
+  Press {YELLOW}Enter{RESET} to start listening. Say your question.
+  Say {YELLOW}"quit"{RESET} or press Ctrl+C to exit.
 """
 
 BENCH_QUESTIONS = [
@@ -135,16 +145,78 @@ def run_benchmark():
         print(f"  Avg latency: {avg_ms}ms  |  Max: {max_ms}ms  |  Questions: {len(success)}/{len(results)}\n")
 
 
+def run_voice():
+    """Voice input mode — speak questions, get answers."""
+    try:
+        import speech_recognition as sr
+    except ImportError:
+        print(f"\n{YELLOW}  Voice mode requires SpeechRecognition and pyaudio.{RESET}")
+        print(f"  Install with: {CYAN}pip install SpeechRecognition pyaudio{RESET}\n")
+        sys.exit(1)
+
+    from rag import answer, filler_phrase
+
+    print(VOICE_BANNER)
+    recognizer = sr.Recognizer()
+    recognizer.pause_threshold = 1.5   # wait 1.5s of silence before stopping
+    recognizer.energy_threshold = 300  # mic sensitivity
+
+    while True:
+        try:
+            input(f"{CYAN}  Press Enter to speak...{RESET} ")
+        except (KeyboardInterrupt, EOFError):
+            print(f"\n\n{GREEN}  Goodbye.{RESET}\n")
+            break
+
+        print(f"{YELLOW}  🎤 Listening...{RESET}", end="", flush=True)
+
+        try:
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                audio = recognizer.listen(source, timeout=10, phrase_time_limit=30)
+
+            print(f"\r{YELLOW}  📝 Transcribing...{RESET}      ", end="", flush=True)
+            question = recognizer.recognize_google(audio)
+            print(f"\r{CYAN}  ❓ Heard:{RESET} {question}")
+
+            if question.lower() in ("quit", "exit", "goodbye", "bye"):
+                print(f"\n{GREEN}  Goodbye.{RESET}\n")
+                break
+
+            print(f"\n{YELLOW}  \"{filler_phrase()}\"{RESET}\n")
+            print(f"{GREEN}  Answer:{RESET}")
+
+            try:
+                text, meta = answer(question, stream=True)
+                print_meta(meta)
+            except RuntimeError as e:
+                print(f"\n{YELLOW}  ⚠️  {e}{RESET}\n")
+
+        except sr.WaitTimeoutError:
+            print(f"\r{YELLOW}  ⚠️  No speech detected — try again.{RESET}      \n")
+        except sr.UnknownValueError:
+            print(f"\r{YELLOW}  ⚠️  Couldn't understand — speak clearly and try again.{RESET}      \n")
+        except sr.RequestError as e:
+            print(f"\r{YELLOW}  ⚠️  Speech service error: {e}{RESET}\n")
+            print(f"  {GRAY}(Check your internet connection — Google STT requires network){RESET}\n")
+        except (KeyboardInterrupt, EOFError):
+            print(f"\n\n{GREEN}  Goodbye.{RESET}\n")
+            break
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Digital Interview Twin CLI demo")
+    parser = argparse.ArgumentParser(description="Digital Secretary CLI")
     parser.add_argument("--once",  action="store_true", help="Single question mode")
     parser.add_argument("--bench", action="store_true", help="Run benchmark suite")
+    parser.add_argument("--voice", action="store_true", help="Voice input mode (mic)")
     args = parser.parse_args()
 
     if args.bench:
         run_benchmark()
     elif args.once:
         run_once()
+    elif args.voice:
+        run_voice()
     else:
         run_interactive()
