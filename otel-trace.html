@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OpenTelemetry Trace — Ellucian ERP Integration Engine</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; font-family: 'Courier New', monospace; padding: 20px; color: #e6edf3; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid #21262d; padding-bottom: 14px; }
+  .logo { background: #58a6ff; color: #0d1117; font-weight: 800; font-size: 13px; padding: 4px 10px; border-radius: 4px; letter-spacing: 1px; }
+  .trace-id { color: #8b949e; font-size: 12px; }
+  .trace-id span { color: #58a6ff; }
+  .meta { display: flex; gap: 24px; margin-bottom: 18px; }
+  .meta-item { font-size: 11px; color: #8b949e; }
+  .meta-item strong { color: #e6edf3; display: block; font-size: 13px; }
+  .timeline-header { display: flex; margin-bottom: 8px; padding-left: 260px; }
+  .tick { flex: 1; font-size: 10px; color: #484f58; text-align: center; }
+  .span-row { display: flex; align-items: center; margin-bottom: 6px; position: relative; }
+  .span-label { width: 255px; min-width: 255px; font-size: 11px; padding-right: 12px; display: flex; align-items: center; gap: 6px; }
+  .service-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .span-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .span-svc { color: #8b949e; font-size: 10px; }
+  .timeline { flex: 1; position: relative; height: 24px; }
+  .bar { position: absolute; height: 18px; top: 3px; border-radius: 3px; display: flex; align-items: center; padding: 0 6px; font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; cursor: default; transition: filter 0.15s; }
+  .bar:hover { filter: brightness(1.2); }
+  .duration { font-size: 10px; color: #8b949e; margin-left: 8px; white-space: nowrap; }
+  .ok-badge { background: #238636; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 6px; }
+  .section-label { font-size: 10px; color: #484f58; text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 6px; padding-left: 260px; border-top: 1px solid #161b22; padding-top: 10px; }
+  .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid #21262d; }
+  .tag { font-size: 10px; background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 2px 8px; color: #8b949e; }
+  .tag span { color: #58a6ff; }
+  .tooltip { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px 14px; font-size: 11px; pointer-events: none; z-index: 100; max-width: 280px; display: none; }
+  .tooltip .t-title { color: #e6edf3; font-weight: bold; margin-bottom: 6px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 16px; color: #8b949e; margin-bottom: 3px; }
+  .tooltip .t-row span { color: #e6edf3; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">JAEGER</div>
+  <div>
+    <div style="font-size:14px;font-weight:600;">ellucian-erp-integration-engine</div>
+    <div class="trace-id">Trace ID: <span>7f3a9c2b1e804d56a0f12c8b3e9a7d41</span></div>
+  </div>
+</div>
+
+<div class="meta">
+  <div class="meta-item"><strong>247ms</strong>Total Duration</div>
+  <div class="meta-item"><strong>14</strong>Spans</div>
+  <div class="meta-item"><strong>5</strong>Services</div>
+  <div class="meta-item"><strong>0</strong>Errors</div>
+  <div class="meta-item"><strong>tenant_id:</strong>univ-michigan-001</div>
+</div>
+
+<div class="timeline-header">
+  <div class="tick">0ms</div>
+  <div class="tick">62ms</div>
+  <div class="tick">124ms</div>
+  <div class="tick">185ms</div>
+  <div class="tick">247ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,0)" onmouseleave="hideTip()">
+  <div class="span-label"><div class="service-dot" style="background:#58a6ff"></div><div><div class="span-name">POST /api/integration/enroll</div><div class="span-svc">api-gateway</div></div></div>
+  <div class="timeline"><div class="bar" style="left:0%;width:100%;background:#1f6feb;">POST /integration/enroll</div></div>
+  <div class="duration">247ms <span class="ok-badge">200</span></div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,1)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#3fb950"></div><div><div class="span-name">TenantResolver.ResolveAsync</div><div class="span-svc">api-gateway</div></div></div>
+  <div class="timeline"><div class="bar" style="left:0%;width:5%;background:#238636;">TenantResolver</div></div>
+  <div class="duration">12ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,2)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#3fb950"></div><div><div class="span-name">IdempotencyCheck.Layer1</div><div class="span-svc">api-gateway</div></div></div>
+  <div class="timeline"><div class="bar" style="left:5%;width:4%;background:#238636;">SHA-256 check</div></div>
+  <div class="duration">9ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,3)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#3fb950"></div><div><div class="span-name">IdempotencyCheck.Layer2</div><div class="span-svc">api-gateway</div></div></div>
+  <div class="timeline"><div class="bar" style="left:9%;width:3%;background:#238636;">correlation_id</div></div>
+  <div class="duration">7ms</div>
+</div>
+
+<div class="section-label">outbox-service</div>
+
+<div class="span-row" onmouseenter="showTip(event,4)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#d2a8ff"></div><div><div class="span-name">OutboxPublisher.Publish</div><div class="span-svc">outbox-service</div></div></div>
+  <div class="timeline"><div class="bar" style="left:12%;width:14%;background:#6e40c9;">OutboxPublisher</div></div>
+  <div class="duration">34ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,5)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:32px"><div class="service-dot" style="background:#d2a8ff"></div><div><div class="span-name">SqlServer.OutboxMessages.Insert</div><div class="span-svc">outbox-service</div></div></div>
+  <div class="timeline"><div class="bar" style="left:14%;width:10%;background:#8957e5;">DB insert</div></div>
+  <div class="duration">24ms</div>
+</div>
+
+<div class="section-label">messaging</div>
+
+<div class="span-row" onmouseenter="showTip(event,6)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#ffa657"></div><div><div class="span-name">ServiceBus.Send</div><div class="span-svc">messaging</div></div></div>
+  <div class="timeline"><div class="bar" style="left:26%;width:9%;background:#b45309;">ServiceBus.Send</div></div>
+  <div class="duration">22ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,7)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#ffa657"></div><div><div class="span-name">ServiceBus.Receive</div><div class="span-svc">messaging</div></div></div>
+  <div class="timeline"><div class="bar" style="left:35%;width:8%;background:#b45309;">ServiceBus.Receive</div></div>
+  <div class="duration">19ms</div>
+</div>
+
+<div class="section-label">integration-adapter</div>
+
+<div class="span-row" onmouseenter="showTip(event,8)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#ff7b72"></div><div><div class="span-name">AdapterRouter.Resolve</div><div class="span-svc">integration-adapter</div></div></div>
+  <div class="timeline"><div class="bar" style="left:43%;width:4%;background:#b91c1c;">AdapterRouter</div></div>
+  <div class="duration">9ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,9)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:32px"><div class="service-dot" style="background:#ff7b72"></div><div><div class="span-name">RetryPolicy.Execute (attempt 1)</div><div class="span-svc">integration-adapter</div></div></div>
+  <div class="timeline"><div class="bar" style="left:47%;width:28%;background:#dc2626;">RetryPolicy · Polly</div></div>
+  <div class="duration">68ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,10)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:48px"><div class="service-dot" style="background:#ff7b72"></div><div><div class="span-name">VendorApi.POST /enrollments</div><div class="span-svc">integration-adapter</div></div></div>
+  <div class="timeline"><div class="bar" style="left:49%;width:24%;background:#991b1b;">HTTP POST vendor</div></div>
+  <div class="duration">59ms</div>
+</div>
+
+<div class="section-label">observability</div>
+
+<div class="span-row" onmouseenter="showTip(event,11)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#39d353"></div><div><div class="span-name">OTel.RecordMetric</div><div class="span-svc">observability</div></div></div>
+  <div class="timeline"><div class="bar" style="left:75%;width:5%;background:#166534;">metrics emit</div></div>
+  <div class="duration">11ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,12)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#39d353"></div><div><div class="span-name">OutboxProcessor.MarkProcessed</div><div class="span-svc">outbox-service</div></div></div>
+  <div class="timeline"><div class="bar" style="left:80%;width:9%;background:#166534;">mark processed</div></div>
+  <div class="duration">22ms</div>
+</div>
+
+<div class="span-row" onmouseenter="showTip(event,13)" onmouseleave="hideTip()">
+  <div class="span-label" style="padding-left:16px"><div class="service-dot" style="background:#39d353"></div><div><div class="span-name">Span.End → Jaeger export</div><div class="span-svc">observability</div></div></div>
+  <div class="timeline"><div class="bar" style="left:89%;width:11%;background:#166534;">→ Jaeger</div></div>
+  <div class="duration">26ms</div>
+</div>
+
+<div class="tag-row">
+  <div class="tag">tenant_id: <span>univ-michigan-001</span></div>
+  <div class="tag">correlation_id: <span>a3f9-44bc-8e12</span></div>
+  <div class="tag">integration_type: <span>enrollment</span></div>
+  <div class="tag">http.status: <span>200</span></div>
+  <div class="tag">vendor: <span>colleague-api</span></div>
+  <div class="tag">retry_count: <span>0</span></div>
+  <div class="tag">duplicate_check: <span>passed</span></div>
+  <div class="tag">p99_target: <span>&lt;100ms vendor</span></div>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<script>
+const data = [
+  {name:'POST /api/integration/enroll',svc:'api-gateway',dur:'247ms',status:'200 OK',tags:{tenant_id:'univ-michigan-001','http.method':'POST','http.url':'/api/integration/enroll'}},
+  {name:'TenantResolver.ResolveAsync',svc:'api-gateway',dur:'12ms',status:'OK',tags:{tenant_id:'univ-michigan-001',resolver:'middleware'}},
+  {name:'IdempotencyCheck.Layer1',svc:'api-gateway',dur:'9ms',status:'PASS',tags:{check:'sha256-payload-hash',ttl:'24h'}},
+  {name:'IdempotencyCheck.Layer2',svc:'api-gateway',dur:'7ms',status:'PASS',tags:{check:'correlation_id','correlation_id':'a3f9-44bc-8e12'}},
+  {name:'OutboxPublisher.Publish',svc:'outbox-service',dur:'34ms',status:'OK',tags:{outbox_table:'OutboxMessages',message_type:'EnrollmentEvent'}},
+  {name:'SqlServer.OutboxMessages.Insert',svc:'outbox-service',dur:'24ms',status:'OK',tags:{'db.system':'sqlserver','db.operation':'INSERT','db.table':'OutboxMessages'}},
+  {name:'ServiceBus.Send',svc:'messaging',dur:'22ms',status:'OK',tags:{topic:'integrations.enrollment',namespace:'ellucian-prod'}},
+  {name:'ServiceBus.Receive',svc:'messaging',dur:'19ms',status:'OK',tags:{consumer:'integration-adapter',message_id:'msg-9d3a'}},
+  {name:'AdapterRouter.Resolve',svc:'integration-adapter',dur:'9ms',status:'OK',tags:{adapter:'ColleagueEnrollmentAdapter',version:'v2'}},
+  {name:'RetryPolicy.Execute',svc:'integration-adapter',dur:'68ms',status:'OK',tags:{policy:'ExponentialBackoff',max_attempts:'5',attempt:'1'}},
+  {name:'VendorApi.POST /enrollments',svc:'integration-adapter',dur:'59ms',status:'201 Created',tags:{'http.url':'https://colleague-api.ellucian.com/enrollments','http.status':'201'}},
+  {name:'OTel.RecordMetric',svc:'observability',dur:'11ms',status:'OK',tags:{metric:'integration.duration_ms',value:'247',integration_type:'enrollment'}},
+  {name:'OutboxProcessor.MarkProcessed',svc:'outbox-service',dur:'22ms',status:'OK',tags:{processed_at:'2026-06-05T08:14:32Z',message_id:'msg-9d3a'}},
+  {name:'Span.End → Jaeger export',svc:'observability',dur:'26ms',status:'OK',tags:{exporter:'jaeger',spans_exported:'14'}},
+];
+
+function showTip(e,idx){
+  const d=data[idx];
+  const tip=document.getElementById('tip');
+  let html=`<div class="t-title">${d.name}</div>`;
+  html+=`<div class="t-row">Service <span>${d.svc}</span></div>`;
+  html+=`<div class="t-row">Duration <span>${d.dur}</span></div>`;
+  html+=`<div class="t-row">Status <span>${d.status}</span></div>`;
+  for(const [k,v] of Object.entries(d.tags)) html+=`<div class="t-row">${k} <span>${v}</span></div>`;
+  tip.innerHTML=html;
+  tip.style.display='block';
+  moveTip(e);
+}
+function moveTip(e){const tip=document.getElementById('tip');tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';}
+function hideTip(){document.getElementById('tip').style.display='none';}
+document.addEventListener('mousemove',e=>{const tip=document.getElementById('tip');if(tip.style.display==='block')moveTip(e);});
+</script>
+</body>
+</html>
